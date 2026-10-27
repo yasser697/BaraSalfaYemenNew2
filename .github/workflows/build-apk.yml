@@ -1,0 +1,55 @@
+name: Build Bara Salfa APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/build-apk.yml'
+      - '**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Extract project ZIP
+        run: |
+          ZIP_FILE=$(find . -maxdepth 1 -type f -name '*.zip' | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "لم يتم العثور على ملف ZIP في جذر المستودع"
+            exit 1
+          fi
+          mkdir extracted
+          unzip -o "$ZIP_FILE" -d extracted
+          find extracted -name gradlew -type f
+
+      - name: Build APK
+        run: |
+          GRADLEW=$(find extracted -name gradlew -type f | head -n 1)
+          if [ -z "$GRADLEW" ]; then
+            echo "لم يتم العثور على gradlew داخل المشروع"
+            exit 1
+          fi
+          PROJECT_DIR=$(dirname "$GRADLEW")
+          cd "$PROJECT_DIR"
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: BaraSalfa-debug-APK
+          path: extracted/**/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
